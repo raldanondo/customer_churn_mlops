@@ -6,6 +6,10 @@ import matplotlib.pyplot as plt
 import optuna
 import joblib
 import json
+
+import sys
+print(sys.executable)
+
 import shap
 import numpy as np
 import pandas as pd
@@ -25,7 +29,7 @@ from mylib.data_preprocess import get_processed_data
 load_dotenv()
 
 # Configuración
-TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "mlruns")
+TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
 EXPERIMENT_NAME = os.getenv("MLFLOW_EXPERIMENT_NAME", "Telco_Churn_Model")
 DATA_PATH = os.getenv("DATA_PATH", "archive/WA_Fn-UseC_-Telco-Customer-Churn.csv")
 OUTPUT_DIR = "api/models_local"
@@ -49,7 +53,7 @@ def objective(trial, X_train, X_val, y_train, y_val):
     }
 
     with mlflow.start_run(nested=True):
-        model = xgb.XGBClassifier(**params, use_label_encoder=False)
+        model = xgb.XGBClassifier(**params)#, use_label_encoder=False)
         model.fit(X_train, y_train)
         
         y_proba = model.predict_proba(X_val)[:, 1]
@@ -87,7 +91,7 @@ def main():
         # ---------------------------------------------------------
         print("🔍 Optimizing Hyperparameters...")
         study = optuna.create_study(direction="maximize")
-        study.optimize(lambda trial: objective(trial, X_train, X_val, y_train, y_val), n_trials=20)
+        study.optimize(lambda trial: objective(trial, X_train, X_val, y_train, y_val), n_trials=2)
         
         print("🏆 Best Params:", study.best_params)
         mlflow.log_params(study.best_params)
@@ -98,7 +102,7 @@ def main():
         # We need a temp model on X_train to find the threshold on X_val
         # before we mix them together.
         print("⚙️ calculating optimal threshold...")
-        temp_model = xgb.XGBClassifier(**study.best_params, use_label_encoder=False)
+        temp_model = xgb.XGBClassifier(**study.best_params)#, use_label_encoder=False)
         temp_model.fit(X_train, y_train)
         
         y_proba_val = temp_model.predict_proba(X_val)[:, 1]
@@ -117,7 +121,7 @@ def main():
         y_full = pd.concat([y_train, y_val])
         
         # 2. Define Base Model
-        base_model = xgb.XGBClassifier(**study.best_params, use_label_encoder=False)
+        base_model = xgb.XGBClassifier(**study.best_params),#, use_label_encoder=False)
         
         # 3. Wrap in CalibratedClassifierCV
         # cv=5 means it trains 5 models on different folds of X_full and averages probabilities
@@ -189,7 +193,7 @@ def main():
         # 3. Save Artifacts
         # Note: We save the CalibratedClassifierCV object. 
         # It behaves just like a model (has predict/predict_proba).
-        mlflow.sklearn.log_model(calibrated_model, "model")
+        mlflow.sklearn.log_model(calibrated_model, name="model", serialization_format="pickle")
         joblib.dump(calibrated_model, os.path.join(OUTPUT_DIR, "model.joblib"))
         
         joblib.dump(scaler, os.path.join(OUTPUT_DIR, "scaler.joblib"))
@@ -204,15 +208,15 @@ def main():
         # CalibratedClassifierCV doesn't expose the tree structure easily for SHAP.
         # We fit a temporary standalone XGBoost on Full Data to generate the interpretation.
         print("📊 Generating SHAP plot (using proxy model)...")
-        shap_model = xgb.XGBClassifier(**study.best_params, use_label_encoder=False)
+        shap_model = xgb.XGBClassifier(**study.best_params)#, use_label_encoder=False)
         shap_model.fit(X_full, y_full)
         
-        explainer = shap.TreeExplainer(shap_model)
+        explainer = shap.Explainer(shap_model, X_full)
         # We use a sample of Test set for SHAP to speed it up
-        shap_values = explainer.shap_values(X_test)
+        shap_values = explainer(X_test)
         
         plt.figure(figsize=(10, 8))
-        shap.summary_plot(shap_values, X_test, max_display=12, show=False, plot_type="dot")
+        shap.plots.beeswarm(shap_values, max_display=12, show=False)
         plt.title("SHAP Feature Importance (Full Data)")
         plt.tight_layout()
         plt.savefig("shap_summary.png", bbox_inches='tight', dpi=300)

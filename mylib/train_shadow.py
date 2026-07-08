@@ -16,7 +16,7 @@ from mylib.data_preprocess import get_processed_data
 load_dotenv()
 
 # Config
-TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "mlruns")
+TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
 EXPERIMENT_NAME = "Telco_Churn_Shadow_Model"
 DATA_PATH = os.getenv("DATA_PATH", "archive/WA_Fn-UseC_-Telco-Customer-Churn.csv")
 OUTPUT_DIR = "api/models_local"
@@ -80,7 +80,7 @@ def main():
         # ---------------------------------------------------------
         print("🔍 Optimizing TabNet Hyperparameters...")
         study = optuna.create_study(direction="maximize")
-        study.optimize(lambda trial: objective(trial, X_train, X_val, y_train, y_val), n_trials=10)
+        study.optimize(lambda trial: objective(trial, X_train, X_val, y_train, y_val), n_trials=2)
         
         print("🏆 Best Params:", study.best_params)
         mlflow.log_params(study.best_params)

@@ -7,9 +7,7 @@ on:
     branches: [ "main" ]
 
 env:
-  # GLOBAL VARIABLES
-  MLFLOW_DIR: ${{ github.workspace }}/mlruns
-  MLFLOW_TRACKING_URI: file://${{ github.workspace }}/mlruns
+  MLFLOW_TRACKING_URI: sqlite:///${{ github.workspace }}/mlflow.db
   DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/mlops_final_project:latest
 
 jobs:
@@ -67,8 +65,7 @@ jobs:
     
     # Define MLFLOW_DIR as a job-level env var
     env:
-      MLFLOW_DIR: ${{ github.workspace }}/mlruns
-
+      MLFLOW_TRACKING_URI: sqlite:///${{ github.workspace }}/mlflow.db
     steps:
       - uses: actions/checkout@v4
 
@@ -92,7 +89,7 @@ jobs:
       # 5. Train Models
       - name: Train Models (Optuna + MLFlow)
         env:
-          MLFLOW_TRACKING_URI: ${{ env.MLFLOW_DIR }}
+          MLFLOW_TRACKING_URI: ${{ env.MLFLOW_TRACKING_URI }}
         run: uv run python -m mylib.train_pipeline
 
       # 6. Run Artifact Tests
@@ -113,9 +110,9 @@ jobs:
             api/models_local/threshold.joblib
       
       # 8. CLEANUP
-      - name: Remove MLFlow Directory
-        if: always() # Run even if previous steps fail
-        run: rm -rf ${{ env.MLFLOW_DIR }}
+      - name: Remove MLflow Database
+        if: always()
+        run: rm -f ${{ github.workspace }}/mlflow.db
       
   # -----------------------------------------------------------
   # JOB 2: DEPLOY BACKEND TO RENDER
@@ -196,7 +193,7 @@ jobs:
         run: |
           echo "🧹 Cleaning up runner disk..."
           rm -rf .git          
-          rm -rf mlruns        
+          rm -rf mlflow.db      
           rm -rf .venv         
           rm -rf ~/.cache/uv   
           echo "✅ Disk cleaned."

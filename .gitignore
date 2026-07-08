@@ -33,6 +33,7 @@ data/
 *.joblib
 *.pkl
 *.h5
+*.csv
 processed_data_audit.csv
 
 # Ignore MLFlow logs (Generated automatically)
@@ -46,7 +47,7 @@ mlruns/
 .vscode/
 .idea/
 .DS_Store
-.ipynb_checkpoints
+.ipynb_checkpoints/
 .cursorignore
 .ruff_cache/
 .pytest_cache/
@@ -63,9 +64,7 @@ grafana_data/
 
 # Ignore specific files that we deleted in data 
 confusion_matrix.png
-processed_data_audit.csv
 
-# Ignore 
+# Ignore local API artifacts and generated reports
 api/models_local/
 api/monitor_reports/
-
