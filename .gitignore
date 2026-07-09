@@ -39,7 +39,7 @@ processed_data_audit.csv
 # Ignore MLFlow logs (Generated automatically)
 mlruns/
 .trash/
-
+*.db
 
 # ==========================
 # 4. IDEs & Tools
