@@ -121,7 +121,7 @@ def main():
         y_full = pd.concat([y_train, y_val])
         
         # 2. Define Base Model
-        base_model = xgb.XGBClassifier(**study.best_params),#, use_label_encoder=False)
+        base_model = xgb.XGBClassifier(**study.best_params)#, use_label_encoder=False)
         
         # 3. Wrap in CalibratedClassifierCV
         # cv=5 means it trains 5 models on different folds of X_full and averages probabilities
